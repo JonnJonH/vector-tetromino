@@ -229,11 +229,7 @@ function pollGamepad(deltaTime) {
 
     // Start button logic
     if (justPressed('startBtn')) {
-        if (startScreen.classList.contains('active') || gameOverScreen.classList.contains('active')) {
-            startGame();
-        } else {
-            togglePause();
-        }
+        togglePause();
     }
 
     // Continuous/DAS actions (Left, Right, Down)
@@ -360,3 +356,50 @@ gameOverScreen.addEventListener('click', startGame);
 
 // Initial draw of the empty grid and overlays
 renderer.drawGrid(game.getEmptyGrid());
+
+// --- Global Menu Polling ---
+// The main update() loop completely halts on the Start, Game Over, and Pause screens.
+// This lightweight loop runs perpetually to allow the gamepad to start/unpause the game.
+let lastMenuGamepadState = {};
+function menuPollLoop() {
+    requestAnimationFrame(menuPollLoop);
+
+    if (isRemapping) return; // Don't interfere with the remapping listener
+
+    const isStartOverlay = startScreen.classList.contains('active') || gameOverScreen.classList.contains('active');
+    const isPaused = pauseScreen.classList.contains('active');
+
+    if (!isStartOverlay && !isPaused) return; // If game is running normally, let update() handle everything
+
+    const gamepads = navigator.getGamepads();
+    const gp = gamepads[0];
+    if (!gp) return;
+
+    const checkBtn = (mappingCode) => {
+        if (typeof mappingCode === 'number') {
+            return gp.buttons[mappingCode]?.pressed;
+        }
+        return false;
+    };
+
+    const cw = checkBtn(gamepadMappings['rotateCW']);
+    const ccw = checkBtn(gamepadMappings['rotateCCW']);
+    const start = gp.buttons[9]?.pressed;
+
+    const wasCW = lastMenuGamepadState['cw'];
+    const wasCCW = lastMenuGamepadState['ccw'];
+    const wasStart = lastMenuGamepadState['start'];
+
+    const justPressed = (curr, prev) => curr && !prev;
+
+    if (justPressed(cw, wasCW) || justPressed(ccw, wasCCW) || justPressed(start, wasStart)) {
+        if (isStartOverlay) {
+            startGame();
+        } else if (isPaused) {
+            togglePause();
+        }
+    }
+
+    lastMenuGamepadState = { cw, ccw, start };
+}
+menuPollLoop();
