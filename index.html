@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vector Tetromino</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <div id="app">
+    <div class="game-container">
+
+      <!-- Left Panel: Stats -->
+      <div class="panel left-panel">
+        <div class="stat-box">
+          <div class="stat-label">HOLD</div>
+          <div class="next-piece-container">
+            <canvas id="hold-canvas" width="120" height="120"></canvas>
+          </div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">SCORE</div>
+          <div class="stat-value" id="score-val">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">LINES</div>
+          <div class="stat-value" id="lines-val">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">LEVEL</div>
+          <div class="stat-value" id="level-val">1</div>
+        </div>
+        <div class="stat-box stats-group">
+          <div class="stat-label">STATS</div>
+          <div class="stat-row"><span class="stat-color piece-I">I</span><span class="stat-value"
+              id="stat-count-1">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-J">J</span><span class="stat-value"
+              id="stat-count-2">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-L">L</span><span class="stat-value"
+              id="stat-count-3">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-O">O</span><span class="stat-value"
+              id="stat-count-4">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-S">S</span><span class="stat-value"
+              id="stat-count-5">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-T">T</span><span class="stat-value"
+              id="stat-count-6">000</span></div>
+          <div class="stat-row"><span class="stat-color piece-Z">Z</span><span class="stat-value"
+              id="stat-count-7">000</span></div>
+        </div>
+      </div>
+
+      <!-- Main Game Area -->
+      <div class="canvas-container">
+        <canvas id="game-canvas" width="300" height="600"></canvas>
+
+        <!-- Overlays -->
+        <div id="start-screen" class="overlay active">
+          <h1 class="glow-text title">VECTOR<br>TETRIS</h1>
+          <p>Press [SPACE] or Click to Start</p>
+          <button id="btn-gamepad-settings" class="ui-button">Gamepad Settings</button>
+          <div class="controls-hint">
+            <span>&#8592; &#8594;</span> Move &nbsp;&nbsp; <span>&#8593;</span> Hard Drop &nbsp;&nbsp;
+            <span>&#8595;</span> Soft Drop<br>
+            <span>Space</span> / <span>Z</span> Rotate &nbsp;&nbsp; <span>Enter</span> Hold
+          </div>
+        </div>
+
+        <div id="pause-screen" class="overlay">
+          <h2 class="glow-text">PAUSED</h2>
+          <p>Press [P] or [ESC] to Resume</p>
+        </div>
+
+        <div id="game-over-screen" class="overlay">
+          <h2 class="glow-text title-red">GAME OVER</h2>
+          <div class="final-score">SCORE: <span id="final-score-val">0</span></div>
+          <p>Press [SPACE] or Click to Restart</p>
+        </div>
+
+        <div id="gamepad-settings-screen" class="overlay">
+          <h2 class="glow-text">GAMEPAD SETTINGS</h2>
+          <div class="mapping-list">
+            <div class="mapping-row"><span>Left</span><button class="mapping-btn" data-action="left">Btn 14</button>
+            </div>
+            <div class="mapping-row"><span>Right</span><button class="mapping-btn" data-action="right">Btn 15</button>
+            </div>
+            <div class="mapping-row"><span>Soft Drop</span><button class="mapping-btn" data-action="down">Btn
+                13</button></div>
+            <div class="mapping-row"><span>Hard Drop</span><button class="mapping-btn" data-action="up">Btn 12</button>
+            </div>
+            <div class="mapping-row"><span>Rotate CW</span><button class="mapping-btn" data-action="rotateCW">Btn
+                1</button></div>
+            <div class="mapping-row"><span>Rotate CCW</span><button class="mapping-btn" data-action="rotateCCW">Btn
+                0</button></div>
+            <div class="mapping-row"><span>Hold</span><button class="mapping-btn" data-action="hold">Btn 4</button>
+            </div>
+          </div>
+          <button id="btn-save-mappings" class="ui-button">Save & Close</button>
+        </div>
+      </div>
+
+      <!-- Right Panel: Next Piece -->
+      <div class="panel right-panel">
+        <div class="stat-box">
+          <div class="stat-label">NEXT</div>
+          <div class="next-piece-container">
+            <canvas id="next-canvas" width="120" height="120"></canvas>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+
+</html>
