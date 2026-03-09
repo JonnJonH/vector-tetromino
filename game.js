@@ -1,9 +1,11 @@
 import { COLS, ROWS, SHAPES } from './tetrominos.js';
 
 export class Game {
-    constructor(renderer, audio) {
+    constructor(renderer, audio, onStatsChange, onPieceStatsChange) {
         this.renderer = renderer;
         this.audio = audio;
+        this.onStatsChange = onStatsChange || (() => { });
+        this.onPieceStatsChange = onPieceStatsChange || (() => { });
         this.reset();
     }
 
@@ -16,6 +18,7 @@ export class Game {
         this.isPaused = false;
         this.activePiece = null;
         this.heldPieceType = null;
+        this.bag = [];
         this.nextPieceType = this.randomPiece();
         this.pieceCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
         this.lockDelayActive = false;
@@ -31,7 +34,15 @@ export class Game {
     }
 
     randomPiece() {
-        return Math.floor(Math.random() * 7) + 1; // 1 to 7
+        if (this.bag.length === 0) {
+            this.bag = [1, 2, 3, 4, 5, 6, 7];
+            // Fisher-Yates shuffle
+            for (let i = this.bag.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+            }
+        }
+        return this.bag.pop();
     }
 
     spawnPiece() {
@@ -295,16 +306,15 @@ export class Game {
     }
 
     updateStats() {
-        document.getElementById('score-val').innerText = this.score;
-        document.getElementById('lines-val').innerText = this.lines;
-        document.getElementById('level-val').innerText = this.level;
+        this.onStatsChange({
+            score: this.score,
+            lines: this.lines,
+            level: this.level
+        });
     }
 
     updatePieceStats() {
-        for (let i = 1; i <= 7; i++) {
-            const countStr = this.pieceCounts[i].toString().padStart(3, '0');
-            document.getElementById(`stat-count-${i}`).innerText = countStr;
-        }
+        this.onPieceStatsChange(this.pieceCounts);
     }
 
     update(deltaTime) {
