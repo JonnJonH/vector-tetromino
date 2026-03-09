@@ -1,11 +1,13 @@
 import { COLS, ROWS, SHAPES } from './tetrominos.js';
 
 export class Game {
-    constructor(renderer, audio, onStatsChange, onPieceStatsChange) {
+    constructor(renderer, audio, onStatsChange, onPieceStatsChange, onAttack, onWin) {
         this.renderer = renderer;
         this.audio = audio;
         this.onStatsChange = onStatsChange || (() => { });
         this.onPieceStatsChange = onPieceStatsChange || (() => { });
+        this.onAttack = onAttack;
+        this.onWin = onWin;
         this.reset();
     }
 
@@ -21,6 +23,8 @@ export class Game {
         this.bag = [];
         this.nextPieceType = this.randomPiece();
         this.pieceCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+        this.pendingGarbage = 0;
+        this.lastClearWasTetris = false;
         this.lockDelayActive = false;
         this.lockDelayTimer = 0;
         this.LOCK_DELAY_MS = 500;
@@ -31,6 +35,32 @@ export class Game {
 
     getEmptyGrid() {
         return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    }
+
+    receiveGarbage(amount) {
+        this.pendingGarbage += amount;
+    }
+
+    insertGarbage() {
+        if (this.pendingGarbage <= 0) return;
+
+        let amount = this.pendingGarbage;
+        this.pendingGarbage = 0;
+
+        // Cap garbage insertion to avoid immediate weird array size errors, though 20 max makes sense
+        if (amount > ROWS) amount = ROWS;
+
+        // Push existing rows up
+        for (let r = 0; r < ROWS - amount; r++) {
+            this.grid[r] = [...this.grid[r + amount]];
+        }
+
+        // Add garbage rows at bottom with a single aligned hole
+        const holeCol = Math.floor(Math.random() * COLS);
+        for (let r = ROWS - amount; r < ROWS; r++) {
+            this.grid[r] = Array(COLS).fill(8); // 8 is garbage block
+            this.grid[r][holeCol] = 0;
+        }
     }
 
     randomPiece() {
@@ -266,7 +296,10 @@ export class Game {
         this.audio.lock();
 
         if (!this.gameOver) {
-            this.clearLines();
+            const linesCleared = this.clearLines();
+            if (linesCleared === 0 && this.pendingGarbage > 0) {
+                this.insertGarbage();
+            }
             this.spawnPiece();
         }
     }
@@ -285,6 +318,36 @@ export class Game {
         }
 
         if (linesCleared > 0) {
+            let garbageSent = 0;
+            if (linesCleared === 2) garbageSent = 1;
+            else if (linesCleared === 3) garbageSent = 2;
+            else if (linesCleared === 4) {
+                garbageSent = 4;
+                if (this.lastClearWasTetris) garbageSent += 1; // Back-to-Back bonus
+                this.lastClearWasTetris = true;
+            }
+
+            if (linesCleared > 0 && linesCleared < 4) {
+                this.lastClearWasTetris = false; // Break B2B chain
+            }
+
+            // Countering logic
+            if (garbageSent > 0) {
+                if (this.pendingGarbage > 0) {
+                    if (garbageSent >= this.pendingGarbage) {
+                        garbageSent -= this.pendingGarbage;
+                        this.pendingGarbage = 0;
+                    } else {
+                        this.pendingGarbage -= garbageSent;
+                        garbageSent = 0;
+                    }
+                }
+
+                if (garbageSent > 0 && this.onAttack) {
+                    this.onAttack(garbageSent);
+                }
+            }
+
             if (linesCleared === 4) {
                 this.audio.tetrisClear();
             } else {
@@ -302,7 +365,13 @@ export class Game {
             }
 
             this.updateStats();
+
+            if (this.lines >= 100 && this.onWin) {
+                this.onWin();
+            }
         }
+
+        return linesCleared;
     }
 
     updateStats() {

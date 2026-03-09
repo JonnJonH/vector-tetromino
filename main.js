@@ -11,38 +11,65 @@ const APP_STATES = {
 };
 let appState = APP_STATES.START;
 
-const renderer = new Renderer('game-canvas', 'next-canvas', 'hold-canvas');
+const p1Renderer = new Renderer('p1-game-canvas', 'p1-next-canvas', 'p1-hold-canvas');
+const p2Renderer = new Renderer('p2-game-canvas', 'p2-next-canvas', 'p2-hold-canvas');
 const audio = new AudioFx();
 
-const scoreValEl = document.getElementById('score-val');
-const linesValEl = document.getElementById('lines-val');
-const levelValEl = document.getElementById('level-val');
-const statCountEls = {};
-for (let i = 1; i <= 7; i++) {
-    statCountEls[i] = document.getElementById(`stat-count-${i}`);
-}
-
-function handleStatsChange(stats) {
-    scoreValEl.innerText = stats.score;
-    linesValEl.innerText = stats.lines;
-    levelValEl.innerText = stats.level;
-}
-
-function handlePieceStatsChange(pieceCounts) {
+function getStatsElements(prefix) {
+    const scoreValEl = document.getElementById(`${prefix}-score-val`);
+    const linesValEl = document.getElementById(`${prefix}-lines-val`);
+    const levelValEl = document.getElementById(`${prefix}-level-val`);
+    const statCountEls = {};
     for (let i = 1; i <= 7; i++) {
-        statCountEls[i].innerText = pieceCounts[i].toString().padStart(3, '0');
+        statCountEls[i] = document.getElementById(`${prefix}-stat-count-${i}`);
     }
+    return { scoreValEl, linesValEl, levelValEl, statCountEls };
 }
 
-const game = new Game(renderer, audio, handleStatsChange, handlePieceStatsChange);
+const p1Els = getStatsElements('p1');
+const p2Els = getStatsElements('p2');
+
+function createStatsHandler(els) {
+    return (stats) => {
+        els.scoreValEl.innerText = stats.score;
+        els.linesValEl.innerText = stats.lines;
+        els.levelValEl.innerText = stats.level;
+    };
+}
+
+function createPieceStatsHandler(els) {
+    return (pieceCounts) => {
+        for (let i = 1; i <= 7; i++) {
+            els.statCountEls[i].innerText = pieceCounts[i].toString().padStart(3, '0');
+        }
+    };
+}
+
+let p1Game, p2Game;
+
+// onAttack callback will trigger garbage reception on the OTHER player
+// onWin callback triggers Game Over with the given loser index (if P1 wins, P2 loses => 2)
+p1Game = new Game(p1Renderer, audio,
+    createStatsHandler(p1Els),
+    createPieceStatsHandler(p1Els),
+    (amount) => { if (p2Game) p2Game.receiveGarbage(amount); },
+    () => handleGameOver(2)
+);
+
+p2Game = new Game(p2Renderer, audio,
+    createStatsHandler(p2Els),
+    createPieceStatsHandler(p2Els),
+    (amount) => { if (p1Game) p1Game.receiveGarbage(amount); },
+    () => handleGameOver(1)
+);
 
 if (import.meta.env?.DEV) {
-    window.game = game; // Exposed for debugging
-    window.renderer = renderer; // Exposed for debugging
+    window.p1Game = p1Game; // Exposed for debugging
+    window.p2Game = p2Game; // Exposed for debugging
 }
 
-let dropCounter = 0;
-let dropInterval = 1000;
+let p1DropCounter = 0;
+let p2DropCounter = 0;
 let lastTime = 0;
 let requestID;
 
@@ -50,16 +77,20 @@ const startScreen = document.getElementById('start-screen');
 const pauseScreen = document.getElementById('pause-screen');
 const gameOverScreen = document.getElementById('game-over-screen');
 const gamepadSettingsScreen = document.getElementById('gamepad-settings-screen');
-const finalScoreVal = document.getElementById('final-score-val');
+const p1FinalScoreVal = document.getElementById('p1-final-score-val');
+const p2FinalScoreVal = document.getElementById('p2-final-score-val');
+const winnerText = document.getElementById('winner-text');
 
 let gamepadMappings = {
     left: 14, right: 15, down: 13, up: 12,
     rotateCW: 1, rotateCCW: 0, hold: 4
 };
-let prevGamepadState = {};
-let dasTimers = { left: 0, right: 0, down: 0 };
-const DAS_DELAY = 150; // ms before repeat starts
-const DAS_REPEAT = 40; // ms between repeats
+let prevGamepadStateP1 = {};
+let prevGamepadStateP2 = {};
+let dasTimersP1 = { left: 0, right: 0, down: 0 };
+let dasTimersP2 = { left: 0, right: 0, down: 0 };
+const DAS_DELAY = 150;
+const DAS_REPEAT = 40;
 
 let remappingAction = null;
 let remappingButtonEl = null;
@@ -87,36 +118,57 @@ function mainLoop(time) {
     }
 }
 
-function updatePlaying(deltaTime) {
-    if (game.gameOver) {
-        handleGameOver();
+function updatePlayer(gameInstance, dropObj, deltaTime, isP1) {
+    if (gameInstance.gameOver) {
+        handleGameOver(isP1 ? 1 : 2);
         return;
     }
 
-    dropCounter += deltaTime;
+    dropObj.val += deltaTime;
 
     const LEVEL_SPEEDS = [
         887, 820, 753, 686, 619, 552, 469, 368, 285, 184,
         167, 151, 134, 117, 100, 100, 84, 84, 67, 67, 50
     ];
 
-    const speedIndex = Math.min(game.level - 1, LEVEL_SPEEDS.length - 1);
-    dropInterval = LEVEL_SPEEDS[speedIndex];
+    const speedIndex = Math.min(gameInstance.level - 1, LEVEL_SPEEDS.length - 1);
+    const dropInterval = LEVEL_SPEEDS[speedIndex];
 
-    if (dropCounter > dropInterval) {
-        game.moveDown();
-        dropCounter = 0;
+    if (dropObj.val > dropInterval) {
+        gameInstance.moveDown();
+        dropObj.val = 0;
     }
 
-    game.update(deltaTime);
-    game.draw();
+    gameInstance.update(deltaTime);
+    gameInstance.draw();
 }
 
-function handleGameOver() {
+function updatePlaying(deltaTime) {
+    let p1DropObj = { val: p1DropCounter };
+    updatePlayer(p1Game, p1DropObj, deltaTime, true);
+    p1DropCounter = p1DropObj.val;
+
+    if (appState !== APP_STATES.PLAYING) return;
+
+    let p2DropObj = { val: p2DropCounter };
+    updatePlayer(p2Game, p2DropObj, deltaTime, false);
+    p2DropCounter = p2DropObj.val;
+}
+
+function handleGameOver(loserIndex) {
     audio.stopBGM();
     appState = APP_STATES.GAMEOVER;
     gameOverScreen.classList.add('active');
-    finalScoreVal.innerText = game.score;
+    p1FinalScoreVal.innerText = p1Game.score;
+    p2FinalScoreVal.innerText = p2Game.score;
+
+    if (loserIndex === 1) {
+        winnerText.innerText = 'PLAYER 2 WINS!';
+        winnerText.style.color = '#0ff'; // Cyan for P2 win
+    } else {
+        winnerText.innerText = 'PLAYER 1 WINS!';
+        winnerText.style.color = '#f0f'; // Magenta for P1 win
+    }
 }
 
 function startGame() {
@@ -126,11 +178,14 @@ function startGame() {
     gameOverScreen.classList.remove('active');
     pauseScreen.classList.remove('active');
 
-    game.reset();
-    dropCounter = 0;
+    p1Game.reset();
+    p2Game.reset();
+    p1DropCounter = 0;
+    p2DropCounter = 0;
     lastTime = performance.now();
     appState = APP_STATES.PLAYING;
-    game.isPaused = false;
+    p1Game.isPaused = false;
+    p2Game.isPaused = false;
 }
 
 function togglePause() {
@@ -138,18 +193,21 @@ function togglePause() {
 
     if (appState === APP_STATES.PLAYING) {
         appState = APP_STATES.PAUSED;
-        game.isPaused = true;
+        p1Game.isPaused = true;
+        p2Game.isPaused = true;
         audio.pauseBGM();
         pauseScreen.classList.add('active');
     } else if (appState === APP_STATES.PAUSED) {
         appState = APP_STATES.PLAYING;
-        game.isPaused = false;
+        p1Game.isPaused = false;
+        p2Game.isPaused = false;
         audio.resumeBGM();
         pauseScreen.classList.remove('active');
         lastTime = performance.now();
     }
 }
 
+// Keyboard primarily controls Player 1
 document.addEventListener('keydown', event => {
     if (appState === APP_STATES.START || appState === APP_STATES.GAMEOVER) {
         if (event.code === 'Space') {
@@ -165,50 +223,56 @@ document.addEventListener('keydown', event => {
 
     if (appState !== APP_STATES.PLAYING) return;
 
+    if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'ArrowUp', ' ', 'z', 'Z', 'Enter', 'Shift', 'c', 'C'].includes(event.key)) {
+        event.preventDefault(); // Prevents "Enter" or "Space" from clicking focused buttons (like the Start button)
+    }
+
     if (event.repeat) {
-        if (event.code === 'ArrowUp' || event.code === 'Enter' || event.code === 'Space' || event.key === 'z') {
+        if (event.code === 'ArrowUp' || event.key === 'Enter' || event.key === 'Shift' || event.key === 'c' || event.key === 'C' || event.code === 'Space' || event.key === 'z' || event.key === 'Z') {
             return;
         }
     }
 
     switch (event.key) {
         case 'ArrowLeft':
-            game.moveLeft();
+            p1Game.moveLeft();
             break;
         case 'ArrowRight':
-            game.moveRight();
+            p1Game.moveRight();
             break;
         case 'ArrowDown':
-            game.moveDown(true);
-            dropCounter = 0;
+            p1Game.moveDown(true);
+            p1DropCounter = 0;
             break;
         case 'ArrowUp':
-            game.hardDrop();
-            dropCounter = 0;
+            p1Game.hardDrop();
+            p1DropCounter = 0;
             break;
         case ' ': // Space
-            game.rotate();
+            p1Game.rotate();
             break;
         case 'z':
         case 'Z':
-            game.rotateCCW();
+            p1Game.rotateCCW();
             break;
         case 'Enter':
-            game.holdPiece();
-            dropCounter = 0;
+        case 'Shift':
+        case 'c':
+        case 'C':
+            p1Game.holdPiece();
+            p1DropCounter = 0;
             break;
     }
 
-    game.draw();
+    p1Game.draw();
 });
 
 // --- Gamepad Logic ---
-function pollGamepad(deltaTime) {
-    const gamepads = navigator.getGamepads();
-    const gp = gamepads[0];
+function getActiveGamepads() {
+    return Array.from(navigator.getGamepads()).filter(gp => gp !== null && gp.connected);
+}
 
-    if (!gp) return;
-
+function pollGamepadDevice(gp, gameInstance, prevStates, dasTimers, dropCounterObj, deltaTime, isP1) {
     const currentButtons = gp.buttons.map(b => b.pressed);
 
     const checkPressed = (action) => {
@@ -229,6 +293,9 @@ function pollGamepad(deltaTime) {
             if (action === 'up' && currentButtons[12]) pressed = true;
             if (action === 'down' && currentButtons[13]) pressed = true;
 
+            // Standard fallback: left/right bumpers (4/5) and triggers (6/7) trigger hold if not mapped
+            if (action === 'hold' && (currentButtons[4] || currentButtons[5] || currentButtons[6] || currentButtons[7])) pressed = true;
+
             if (gp.axes.length > 9) {
                 const val = gp.axes[9];
                 if (val >= -1.1 && val <= 1.1) {
@@ -239,7 +306,6 @@ function pollGamepad(deltaTime) {
                 }
             }
         }
-
         return pressed;
     };
 
@@ -255,13 +321,13 @@ function pollGamepad(deltaTime) {
     };
 
     const isPressed = (action) => currentStates[action];
-    const wasPressed = (action) => prevGamepadState[action];
+    const wasPressed = (action) => prevStates[action];
     const justPressed = (action) => isPressed(action) && !wasPressed(action);
 
-    if (justPressed('rotateCW')) { game.rotate(); game.draw(); }
-    if (justPressed('rotateCCW')) { game.rotateCCW(); game.draw(); }
-    if (justPressed('up')) { game.hardDrop(); game.draw(); dropCounter = 0; }
-    if (justPressed('hold')) { game.holdPiece(); game.draw(); dropCounter = 0; }
+    if (justPressed('rotateCW')) { gameInstance.rotate(); gameInstance.draw(); }
+    if (justPressed('rotateCCW')) { gameInstance.rotateCCW(); gameInstance.draw(); }
+    if (justPressed('up')) { gameInstance.hardDrop(); gameInstance.draw(); dropCounterObj.val = 0; }
+    if (justPressed('hold')) { gameInstance.holdPiece(); gameInstance.draw(); dropCounterObj.val = 0; }
 
     if (justPressed('startBtn')) {
         togglePause();
@@ -270,17 +336,17 @@ function pollGamepad(deltaTime) {
     const handleDAS = (action, moveFunc, isSoftDrop = false) => {
         if (justPressed(action)) {
             moveFunc();
-            game.draw();
+            gameInstance.draw();
             dasTimers[action] = 0;
-            if (isSoftDrop) dropCounter = 0;
+            if (isSoftDrop) dropCounterObj.val = 0;
         } else if (isPressed(action)) {
             dasTimers[action] += deltaTime;
             if (dasTimers[action] > DAS_DELAY) {
                 if (dasTimers[action] > DAS_DELAY + DAS_REPEAT) {
                     moveFunc();
-                    game.draw();
+                    gameInstance.draw();
                     dasTimers[action] = DAS_DELAY;
-                    if (isSoftDrop) dropCounter = 0;
+                    if (isSoftDrop) dropCounterObj.val = 0;
                 }
             }
         } else {
@@ -288,30 +354,55 @@ function pollGamepad(deltaTime) {
         }
     };
 
-    handleDAS('left', () => game.moveLeft());
-    handleDAS('right', () => game.moveRight());
-    handleDAS('down', () => game.moveDown(true), true);
+    handleDAS('left', () => gameInstance.moveLeft());
+    handleDAS('right', () => gameInstance.moveRight());
+    handleDAS('down', () => gameInstance.moveDown(true), true);
 
-    prevGamepadState = currentStates;
+    // Write back to the global prev state array reference
+    Object.assign(prevStates, currentStates);
+}
+
+function pollGamepad(deltaTime) {
+    const activeGamepads = getActiveGamepads();
+
+    // Process Controller 1 (Player 1)
+    if (activeGamepads[0]) {
+        let p1DropObj = { val: p1DropCounter };
+        pollGamepadDevice(activeGamepads[0], p1Game, prevGamepadStateP1, dasTimersP1, p1DropObj, deltaTime, true);
+        p1DropCounter = p1DropObj.val;
+    }
+
+    // Process Controller 2 (Player 2)
+    if (activeGamepads[1]) {
+        let p2DropObj = { val: p2DropCounter };
+        pollGamepadDevice(activeGamepads[1], p2Game, prevGamepadStateP2, dasTimersP2, p2DropObj, deltaTime, false);
+        p2DropCounter = p2DropObj.val;
+    }
 }
 
 // --- Menu Polling ---
 let lastMenuGamepadState = {};
 function pollMenuGamepad() {
-    const gamepads = navigator.getGamepads();
-    const gp = gamepads[0];
-    if (!gp) return;
+    const activeGamepads = getActiveGamepads();
+    if (activeGamepads.length === 0) return;
 
-    const checkBtn = (mappingCode) => {
-        if (typeof mappingCode === 'number') {
-            return gp.buttons[mappingCode]?.pressed;
-        }
-        return false;
-    };
+    let cw = false, ccw = false, start = false;
 
-    const cw = checkBtn(gamepadMappings['rotateCW']);
-    const ccw = checkBtn(gamepadMappings['rotateCCW']);
-    const start = gp.buttons[9]?.pressed;
+    for (const gp of activeGamepads) {
+        if (!gp) continue;
+        const checkBtn = (mappingCode) => {
+            if (typeof mappingCode === 'number') {
+                return gp.buttons[mappingCode]?.pressed;
+            }
+            return false;
+        };
+
+        if (checkBtn(gamepadMappings['rotateCW'])) cw = true;
+        if (checkBtn(gamepadMappings['rotateCCW'])) ccw = true;
+
+        // Let Start button (9), Check button (0), or Cancel button (1) wake up / start game
+        if (gp.buttons[9]?.pressed || gp.buttons[0]?.pressed || gp.buttons[1]?.pressed) start = true;
+    }
 
     const wasCW = lastMenuGamepadState['cw'];
     const wasCCW = lastMenuGamepadState['ccw'];
@@ -332,7 +423,7 @@ function pollMenuGamepad() {
 
 // --- Gamepad Settings UI ---
 document.getElementById('btn-gamepad-settings').addEventListener('click', (e) => {
-    e.stopPropagation(); // prevent startGame
+    e.stopPropagation();
     appState = APP_STATES.REMAPPING;
     startScreen.classList.remove('active');
     gamepadSettingsScreen.classList.add('active');
@@ -375,8 +466,6 @@ function cancelRemapping() {
 
 function finishRemap() {
     remappingButtonEl.classList.remove('listening');
-    // Prevent immediate re-triggering with a slight delay if necessary,
-    // although clearing it right away should be fine because it won't check again next frame
     remappingAction = null;
     remappingButtonEl = null;
 }
@@ -384,10 +473,10 @@ function finishRemap() {
 function updateRemapping() {
     if (!remappingButtonEl) return;
 
-    const gamepads = navigator.getGamepads();
-    const gp = gamepads[0];
+    const activeGamepads = getActiveGamepads();
 
-    if (gp) {
+    for (const gp of activeGamepads) {
+        if (!gp) continue;
         for (let i = 0; i < gp.buttons.length; i++) {
             if (gp.buttons[i].pressed) {
                 gamepadMappings[remappingAction] = i;
@@ -420,7 +509,8 @@ gameOverScreen.addEventListener('click', () => {
     if (appState === APP_STATES.GAMEOVER) startGame();
 });
 
-renderer.drawGrid(game.getEmptyGrid());
+p1Renderer.drawGrid(p1Game.getEmptyGrid());
+p2Renderer.drawGrid(p2Game.getEmptyGrid());
 
 // Start the loop
 requestID = requestAnimationFrame(mainLoop);
