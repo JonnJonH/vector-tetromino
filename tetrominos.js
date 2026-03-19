@@ -12,6 +12,7 @@ export const COLORS = {
   5: { h: 120, s: 100, l: 40 }, // Green (S)
   6: { h: 280, s: 100, l: 60 }, // Purple (T)
   7: { h: 0,   s: 100, l: 50 }, // Red (Z)
+  8: { h: 0,   s: 0,   l: 50 }, // Grey (Garbage)
 };
 
 export const SHAPES = [
