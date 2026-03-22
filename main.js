@@ -56,7 +56,7 @@ function sendGarbageWithWarning(targetGame, prefix, amount) {
             void warningEl.offsetWidth; // trigger reflow
             warningEl.classList.add('active');
         }
-        setTimeout(() => targetGame.receiveGarbage(amount), 1200);
+        setTimeout(() => targetGame.receiveGarbage(amount), 2200);
     } else {
         targetGame.receiveGarbage(amount);
     }
