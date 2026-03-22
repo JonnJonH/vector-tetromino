@@ -536,3 +536,32 @@ p2Renderer.drawGrid(p2Game.getEmptyGrid());
 
 // Start the loop
 requestID = requestAnimationFrame(mainLoop);
+
+// --- Responsive Window Scaling ---
+function updateScale() {
+    const container = document.querySelector('.game-container');
+    if (!container) return;
+
+    // Reset transform to measure intrinsic width/height accurately
+    container.style.transform = 'none';
+
+    // Measure the raw, unscaled layout size
+    const naturalWidth = container.offsetWidth;
+    const naturalHeight = container.offsetHeight;
+
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+
+    // Calculate scale to fit within the viewport window, retaining a 4% pad
+    const scale = Math.min(
+        windowWidth / naturalWidth,
+        windowHeight / naturalHeight
+    ) * 0.96;
+
+    // Apply the scale back to the container
+    container.style.transform = `scale(${scale})`;
+}
+
+window.addEventListener('resize', updateScale);
+// Call after initial layout tick
+setTimeout(updateScale, 0);
