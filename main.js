@@ -165,11 +165,11 @@ function handleGameOver(loserIndex) {
     p2FinalScoreVal.innerText = p2Game.score;
 
     if (loserIndex === 1) {
-        winnerText.innerText = 'PLAYER 2 WINS!';
-        winnerText.style.color = '#0ff'; // Cyan for P2 win
+        winnerText.innerText = 'PROF K WINS!';
+        winnerText.style.color = '#aa00ff';
     } else {
-        winnerText.innerText = 'PLAYER 1 WINS!';
-        winnerText.style.color = '#f0f'; // Magenta for P1 win
+        winnerText.innerText = 'JONNJON WINS!';
+        winnerText.style.color = '#ff6600';
     }
 }
 
