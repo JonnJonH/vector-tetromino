@@ -89,8 +89,10 @@ let prevGamepadStateP1 = {};
 let prevGamepadStateP2 = {};
 let dasTimersP1 = { left: 0, right: 0, down: 0 };
 let dasTimersP2 = { left: 0, right: 0, down: 0 };
-const DAS_DELAY = 150;
-const DAS_REPEAT = 40;
+const GAMEPAD_DAS_DELAY_MS = 100;
+const GAMEPAD_ARR_MS = 20;
+const AXIS_PRESS_THRESHOLD = 0.55;
+const AXIS_RELEASE_THRESHOLD = 0.40;
 
 let remappingAction = null;
 let remappingButtonEl = null;
@@ -278,16 +280,29 @@ function pollGamepadDevice(gp, gameInstance, prevStates, dasTimers, dropCounterO
     const checkPressed = (action) => {
         let mapped = gamepadMappings[action];
         let pressed = false;
+        let hasValidMapping = false;
 
-        if (typeof mapped === 'number') {
+        if (typeof mapped === 'number' && mapped < gp.buttons.length) {
             pressed = currentButtons[mapped];
+            hasValidMapping = true;
         } else if (mapped && mapped.type === 'axis' && gp.axes.length > mapped.index) {
-            pressed = (mapped.dir > 0) ? gp.axes[mapped.index] > 0.5 : gp.axes[mapped.index] < -0.5;
+            let axisVal = gp.axes[mapped.index];
+            let val = mapped.dir > 0 ? axisVal : -axisVal;
+            let wasAxisPressed = prevStates[`${action}Axis`] || false;
+            
+            if (wasAxisPressed) {
+                pressed = val > AXIS_RELEASE_THRESHOLD;
+            } else {
+                pressed = val > AXIS_PRESS_THRESHOLD;
+            }
+            prevStates[`${action}Axis`] = pressed;
+            hasValidMapping = true;
         } else if (mapped && mapped.type === 'pov' && gp.axes.length > mapped.index) {
             pressed = Math.abs(gp.axes[mapped.index] - mapped.value) < 0.05;
+            hasValidMapping = true;
         }
 
-        if (!pressed) {
+        if (!hasValidMapping && !pressed) {
             if (action === 'left' && currentButtons[14]) pressed = true;
             if (action === 'right' && currentButtons[15]) pressed = true;
             if (action === 'up' && currentButtons[12]) pressed = true;
@@ -321,13 +336,13 @@ function pollGamepadDevice(gp, gameInstance, prevStates, dasTimers, dropCounterO
     };
 
     const isPressed = (action) => currentStates[action];
-    const wasPressed = (action) => prevStates[action];
+    const wasPressed = (action) => prevStates[action] || false;
     const justPressed = (action) => isPressed(action) && !wasPressed(action);
 
-    if (justPressed('rotateCW')) { gameInstance.rotate(); gameInstance.draw(); }
-    if (justPressed('rotateCCW')) { gameInstance.rotateCCW(); gameInstance.draw(); }
-    if (justPressed('up')) { gameInstance.hardDrop(); gameInstance.draw(); dropCounterObj.val = 0; }
-    if (justPressed('hold')) { gameInstance.holdPiece(); gameInstance.draw(); dropCounterObj.val = 0; }
+    if (justPressed('rotateCW')) { gameInstance.rotate(); }
+    if (justPressed('rotateCCW')) { gameInstance.rotateCCW(); }
+    if (justPressed('up')) { gameInstance.hardDrop(); dropCounterObj.val = 0; }
+    if (justPressed('hold')) { gameInstance.holdPiece(); dropCounterObj.val = 0; }
 
     if (justPressed('startBtn')) {
         togglePause();
@@ -336,18 +351,25 @@ function pollGamepadDevice(gp, gameInstance, prevStates, dasTimers, dropCounterO
     const handleDAS = (action, moveFunc, isSoftDrop = false) => {
         if (justPressed(action)) {
             moveFunc();
-            gameInstance.draw();
             dasTimers[action] = 0;
             if (isSoftDrop) dropCounterObj.val = 0;
         } else if (isPressed(action)) {
             dasTimers[action] += deltaTime;
-            if (dasTimers[action] > DAS_DELAY) {
-                if (dasTimers[action] > DAS_DELAY + DAS_REPEAT) {
-                    moveFunc();
-                    gameInstance.draw();
-                    dasTimers[action] = DAS_DELAY;
-                    if (isSoftDrop) dropCounterObj.val = 0;
+            let activeTime = dasTimers[action] - GAMEPAD_DAS_DELAY_MS;
+            let prevTime = dasTimers[action] - deltaTime;
+            let prevActiveTime = prevTime - GAMEPAD_DAS_DELAY_MS;
+            
+            if (activeTime >= 0) {
+                let repeats = 0;
+                if (prevActiveTime < 0) {
+                    repeats = Math.floor(activeTime / GAMEPAD_ARR_MS) + 1;
+                } else {
+                    repeats = Math.floor(activeTime / GAMEPAD_ARR_MS) - Math.floor(prevActiveTime / GAMEPAD_ARR_MS);
                 }
+                for (let i = 0; i < repeats; i++) {
+                    moveFunc();
+                }
+                if (repeats > 0 && isSoftDrop) dropCounterObj.val = 0;
             }
         } else {
             dasTimers[action] = 0;
