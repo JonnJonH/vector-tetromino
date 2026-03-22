@@ -171,7 +171,7 @@ body {
   padding: 2px;
   /* Slight padding inside border */
   box-shadow: 0 0 15px var(--accent-color, rgba(255, 255, 255, 0.1));
-  overflow: hidden;
+  /* overflow: hidden; Removed to allow overlays to pop out */
   align-self: flex-start;
   /* Prevent flex stretching to match side panels */
   margin: auto 0;
@@ -358,7 +358,7 @@ h2.title-red.glow-text {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 5;
+  z-index: 9999;
   pointer-events: none;
   opacity: 0;
 }
@@ -382,7 +382,8 @@ h2.title-red.glow-text {
 
 .warning-text {
   position: absolute;
-  top: 25%;
+  top: 5%;
+  z-index: 10000;
   font-family: 'Orbitron', sans-serif;
   color: #fff;
   font-size: 1.8rem;
