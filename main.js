@@ -47,19 +47,34 @@ function createPieceStatsHandler(els) {
 
 let p1Game, p2Game;
 
+function sendGarbageWithWarning(targetGame, prefix, amount) {
+    if (!targetGame) return;
+    if (amount >= 4) { // Tetris triggers warning
+        const warningEl = document.getElementById(`${prefix}-warning`);
+        if (warningEl) {
+            warningEl.classList.remove('active');
+            void warningEl.offsetWidth; // trigger reflow
+            warningEl.classList.add('active');
+        }
+        setTimeout(() => targetGame.receiveGarbage(amount), 1200);
+    } else {
+        targetGame.receiveGarbage(amount);
+    }
+}
+
 // onAttack callback will trigger garbage reception on the OTHER player
 // onWin callback triggers Game Over with the given loser index (if P1 wins, P2 loses => 2)
 p1Game = new Game(p1Renderer, audio,
     createStatsHandler(p1Els),
     createPieceStatsHandler(p1Els),
-    (amount) => { if (p2Game) p2Game.receiveGarbage(amount); },
+    (amount) => sendGarbageWithWarning(p2Game, 'p2', amount),
     () => handleGameOver(2)
 );
 
 p2Game = new Game(p2Renderer, audio,
     createStatsHandler(p2Els),
     createPieceStatsHandler(p2Els),
-    (amount) => { if (p1Game) p1Game.receiveGarbage(amount); },
+    (amount) => sendGarbageWithWarning(p1Game, 'p1', amount),
     () => handleGameOver(1)
 );
 
