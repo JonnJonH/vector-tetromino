@@ -117,20 +117,32 @@ export class Game {
     }
 
     moveLeft() {
-        if (this.hasHardDropped) return;
         if (!this.checkCollision(this.activePiece.x - 1, this.activePiece.y, this.activePiece.shape)) {
             this.activePiece.x--;
             this.audio.move();
-            if (this.lockDelayActive) this.lockDelayTimer = 0;
+            if (this.lockDelayActive) {
+                if (!this.checkCollision(this.activePiece.x, this.activePiece.y + 1, this.activePiece.shape)) {
+                    this.lockDelayActive = false;
+                    this.hasHardDropped = false;
+                } else {
+                    this.lockDelayTimer = 0;
+                }
+            }
         }
     }
 
     moveRight() {
-        if (this.hasHardDropped) return;
         if (!this.checkCollision(this.activePiece.x + 1, this.activePiece.y, this.activePiece.shape)) {
             this.activePiece.x++;
             this.audio.move();
-            if (this.lockDelayActive) this.lockDelayTimer = 0;
+            if (this.lockDelayActive) {
+                if (!this.checkCollision(this.activePiece.x, this.activePiece.y + 1, this.activePiece.shape)) {
+                    this.lockDelayActive = false;
+                    this.hasHardDropped = false;
+                } else {
+                    this.lockDelayTimer = 0;
+                }
+            }
         }
     }
 
@@ -268,7 +280,12 @@ export class Game {
 
         // Only reset lock delay if rotation was successful and we are resting on something
         if (this.lockDelayActive) {
-            this.lockDelayTimer = 0;
+            if (!this.checkCollision(this.activePiece.x, this.activePiece.y + 1, this.activePiece.shape)) {
+                this.lockDelayActive = false;
+                this.hasHardDropped = false;
+            } else {
+                this.lockDelayTimer = 0;
+            }
         }
     }
 
