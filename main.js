@@ -89,8 +89,8 @@ let prevGamepadStateP1 = {};
 let prevGamepadStateP2 = {};
 let dasTimersP1 = { left: 0, right: 0, down: 0 };
 let dasTimersP2 = { left: 0, right: 0, down: 0 };
-const GAMEPAD_DAS_DELAY_MS = 100;
-const GAMEPAD_ARR_MS = 20;
+const GAMEPAD_DAS_DELAY_MS = 233; // TGM 14 frames
+const GAMEPAD_ARR_MS = 17; // TGM 1 frame
 const AXIS_PRESS_THRESHOLD = 0.55;
 const AXIS_RELEASE_THRESHOLD = 0.40;
 
