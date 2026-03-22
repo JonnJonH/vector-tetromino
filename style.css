@@ -45,6 +45,38 @@ body {
   /* important for overlays */
 }
 
+.player-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.player-name {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #fff;
+  text-shadow: 0 0 10px var(--accent-strong), 0 0 20px var(--accent-strong), 0 0 40px var(--accent-strong);
+  margin-bottom: -5px;
+}
+
+.p1-wrapper {
+  --accent-color: rgba(255, 102, 0, 0.5);
+  --accent-strong: #ff6600;
+  --accent-glow: 0 0 10px rgba(255, 102, 0, 0.5), 0 0 20px rgba(255, 102, 0, 0.3);
+  --border-color: rgba(255, 102, 0, 0.3);
+}
+
+.p2-wrapper {
+  --accent-color: rgba(170, 0, 255, 0.5);
+  --accent-strong: #aa00ff;
+  --accent-glow: 0 0 10px rgba(170, 0, 255, 0.5), 0 0 20px rgba(170, 0, 255, 0.3);
+  --border-color: rgba(170, 0, 255, 0.3);
+}
+
 .player-area {
   display: flex;
   gap: 20px;
@@ -131,11 +163,11 @@ body {
 .canvas-container {
   position: relative;
   background: #000;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 2px solid var(--border-color, rgba(255, 255, 255, 0.2));
   border-radius: 8px;
   padding: 2px;
   /* Slight padding inside border */
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 15px var(--accent-color, rgba(255, 255, 255, 0.1));
   overflow: hidden;
   align-self: flex-start;
   /* Prevent flex stretching to match side panels */
