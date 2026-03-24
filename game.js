@@ -384,7 +384,7 @@ export class Game {
             this.updateStats();
 
             if (this.lines >= 100 && this.onWin) {
-                this.onWin();
+                this.onWin('100 Rows Cleared!');
             }
         }
 

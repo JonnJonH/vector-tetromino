@@ -10,6 +10,7 @@ const APP_STATES = {
     REMAPPING: 'remapping'
 };
 let appState = APP_STATES.START;
+let gameOverTime = 0;
 
 const p1Renderer = new Renderer('p1-game-canvas', 'p1-next-canvas', 'p1-hold-canvas');
 const p2Renderer = new Renderer('p2-game-canvas', 'p2-next-canvas', 'p2-hold-canvas');
@@ -68,14 +69,14 @@ p1Game = new Game(p1Renderer, audio,
     createStatsHandler(p1Els),
     createPieceStatsHandler(p1Els),
     (amount) => sendGarbageWithWarning(p2Game, 'p2', amount),
-    () => handleGameOver(2)
+    (reason) => handleGameOver(2, reason)
 );
 
 p2Game = new Game(p2Renderer, audio,
     createStatsHandler(p2Els),
     createPieceStatsHandler(p2Els),
     (amount) => sendGarbageWithWarning(p1Game, 'p1', amount),
-    () => handleGameOver(1)
+    (reason) => handleGameOver(1, reason)
 );
 
 if (import.meta.env?.DEV) {
@@ -137,7 +138,7 @@ function mainLoop(time) {
 
 function updatePlayer(gameInstance, dropObj, deltaTime, isP1) {
     if (gameInstance.gameOver) {
-        handleGameOver(isP1 ? 1 : 2);
+        handleGameOver(isP1 ? 1 : 2, isP1 ? 'JonnJon Topped Out!' : 'Prof K Topped Out!');
         return;
     }
 
@@ -172,12 +173,105 @@ function updatePlaying(deltaTime) {
     p2DropCounter = p2DropObj.val;
 }
 
-function handleGameOver(loserIndex) {
+function spawnFallingBlocks() {
+    const container = document.getElementById('falling-blocks-container');
+    if (!container) return;
+    container.innerHTML = ''; // clear old
+
+    const colors = [
+        'hsl(180, 100%, 50%)', // I
+        'hsl(240, 100%, 60%)', // J
+        'hsl(30, 100%, 50%)',  // L
+        'hsl(60, 100%, 50%)',  // O
+        'hsl(120, 100%, 40%)', // S
+        'hsl(280, 100%, 60%)', // T
+        'hsl(0, 100%, 50%)'    // Z
+    ];
+
+    for (let i = 0; i < 50; i++) {
+        const block = document.createElement('div');
+        block.className = 'falling-block';
+        
+        const size = Math.random() * 30 + 20; // 20 to 50px
+        const colorHSL = colors[Math.floor(Math.random() * colors.length)];
+        
+        block.style.left = `${Math.random() * 100}%`;
+        block.style.width = `${size}px`;
+        block.style.height = `${size}px`;
+        
+        const halfSize = size / 2;
+        const faces = ['front', 'back', 'right', 'left', 'top', 'bottom'];
+        faces.forEach(face => {
+            const faceEl = document.createElement('div');
+            faceEl.className = 'cube-face';
+            faceEl.style.position = 'absolute';
+            faceEl.style.width = '100%';
+            faceEl.style.height = '100%';
+            faceEl.style.backgroundColor = colorHSL;
+            faceEl.style.border = '2px solid rgba(255, 255, 255, 0.6)';
+            faceEl.style.boxShadow = `inset 4px 4px 5px rgba(255,255,255,0.4), inset -4px -4px 5px rgba(0,0,0,0.3), 0 0 15px ${colorHSL}`;
+            faceEl.style.boxSizing = 'border-box';
+            
+            switch(face) {
+                case 'front': 
+                    faceEl.style.transform = `rotateY(0deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(1)';
+                    break;
+                case 'back': 
+                    faceEl.style.transform = `rotateY(180deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(0.5)';
+                    break;
+                case 'right': 
+                    faceEl.style.transform = `rotateY(90deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(0.7)';
+                    break;
+                case 'left': 
+                    faceEl.style.transform = `rotateY(-90deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(0.7)';
+                    break;
+                case 'top': 
+                    faceEl.style.transform = `rotateX(90deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(1.2)';
+                    break;
+                case 'bottom': 
+                    faceEl.style.transform = `rotateX(-90deg) translateZ(${halfSize}px)`; 
+                    faceEl.style.filter = 'brightness(0.4)';
+                    break;
+            }
+            block.appendChild(faceEl);
+        });
+
+        const duration = Math.random() * 3 + 2; // 2s to 5s
+        block.style.animationDuration = `${duration}s`;
+        
+        const delay = Math.random() * 2; // 0 to 2s
+        block.style.animationDelay = `${delay}s`;
+
+        // Vary z translation for 3D depth feeling
+        block.style.zIndex = Math.floor(Math.random() * 10);
+        
+        container.appendChild(block);
+    }
+}
+
+function handleGameOver(loserIndex, reason) {
     audio.stopBGM();
     appState = APP_STATES.GAMEOVER;
+    gameOverTime = performance.now();
     gameOverScreen.classList.add('active');
     p1FinalScoreVal.innerText = p1Game.score;
     p2FinalScoreVal.innerText = p2Game.score;
+
+    const reasonEl = document.getElementById('win-reason-text');
+    if(reasonEl) reasonEl.innerText = reason || '';
+
+    const hintEl = document.getElementById('restart-hint-text');
+    if(hintEl) {
+        hintEl.style.display = 'none';
+        setTimeout(() => { if (appState === APP_STATES.GAMEOVER) hintEl.style.display = 'block'; }, 3000);
+    }
+    
+    spawnFallingBlocks();
 
     if (loserIndex === 1) {
         winnerText.innerText = 'PROF K WINS!';
@@ -194,6 +288,9 @@ function startGame() {
     startScreen.classList.remove('active');
     gameOverScreen.classList.remove('active');
     pauseScreen.classList.remove('active');
+
+    const container = document.getElementById('falling-blocks-container');
+    if (container) container.innerHTML = '';
 
     p1Game.reset();
     p2Game.reset();
@@ -227,6 +324,7 @@ function togglePause() {
 // Keyboard primarily controls Player 1
 document.addEventListener('keydown', event => {
     if (appState === APP_STATES.START || appState === APP_STATES.GAMEOVER) {
+        if (appState === APP_STATES.GAMEOVER && performance.now() - gameOverTime < 3000) return;
         if (event.code === 'Space') {
             startGame();
         }
@@ -448,6 +546,7 @@ function pollMenuGamepad() {
     const justPressed = (curr, prev) => curr && !prev;
 
     if (justPressed(cw, wasCW) || justPressed(ccw, wasCCW) || justPressed(start, wasStart)) {
+        if (appState === APP_STATES.GAMEOVER && performance.now() - gameOverTime < 3000) return;
         if (appState === APP_STATES.START || appState === APP_STATES.GAMEOVER) {
             startGame();
         } else if (appState === APP_STATES.PAUSED) {
@@ -543,7 +642,10 @@ startScreen.addEventListener('click', () => {
     if (appState === APP_STATES.START) startGame();
 });
 gameOverScreen.addEventListener('click', () => {
-    if (appState === APP_STATES.GAMEOVER) startGame();
+    if (appState === APP_STATES.GAMEOVER) {
+        if (performance.now() - gameOverTime < 3000) return;
+        startGame();
+    }
 });
 
 p1Renderer.drawGrid(p1Game.getEmptyGrid());

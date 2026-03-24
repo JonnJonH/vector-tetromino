@@ -405,3 +405,45 @@ h2.title-red.glow-text {
   75% { opacity: 0.7; transform: scale(1.1); text-shadow: 0 0 20px #f00; }
   100% { opacity: 0; transform: scale(0.9); }
 }
+
+/* Game Over Reason & Falling Blocks */
+.win-reason {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.5rem;
+  color: #fff;
+  margin-bottom: 20px;
+  z-index: 100;
+}
+
+#falling-blocks-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  perspective: 1000px;
+  overflow: hidden;
+  z-index: 1; /* Below text */
+  pointer-events: none;
+}
+
+#game-over-screen > :not(#falling-blocks-container) {
+  z-index: 100; /* Ensure text sits above blocks */
+  position: relative;
+}
+
+.falling-block {
+  position: absolute;
+  top: -100px;
+  transform-style: preserve-3d;
+  animation: fallAndTwirl linear forwards;
+}
+
+@keyframes fallAndTwirl {
+  0% {
+    transform: translateY(-100px) rotateX(0) rotateY(0) rotateZ(0);
+  }
+  100% {
+    transform: translateY(120vh) rotateX(720deg) rotateY(360deg) rotateZ(180deg);
+  }
+}
