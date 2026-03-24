@@ -208,10 +208,10 @@
     <defs>
       <filter id="chromatic-aberration" x="-5%" y="-5%" width="110%" height="110%">
         <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="red-channel" in="SourceGraphic"/>
-        <feOffset dx="-3" dy="0" result="red-shifted" in="red-channel"/>
+        <feOffset dx="-1.5" dy="0" result="red-shifted" in="red-channel"/>
         <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" result="green-channel" in="SourceGraphic"/>
         <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" result="blue-channel" in="SourceGraphic"/>
-        <feOffset dx="3" dy="0" result="blue-shifted" in="blue-channel"/>
+        <feOffset dx="1.5" dy="0" result="blue-shifted" in="blue-channel"/>
         <feBlend mode="screen" in="red-shifted" in2="green-channel" result="rb"/>
         <feBlend mode="screen" in="rb" in2="blue-shifted"/>
       </filter>
